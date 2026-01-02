@@ -10,22 +10,22 @@ Userflux генерирует нагрузку **только через Gateway
 
 ```mermaid
 flowchart TB
-  subgraph DEV["Local machine"]
-    CLI["userfluxctl (CLI)"]
-    D["userfluxd (Orchestrator)"]
-    A["userflux-agent (Load generator)"]
-    FS[("Local FS: runs/<run_id>/")]
-    PY["Python analytics (plots/reports)"]
-  end
+  subgraph DEV["Local machine"]
+    H["userflux"]
+    O["userfluxo (Orchestrator)"]
+    A["userflux-agent (Load generator)"]
+    FS[("CSV")]
+    PY["Python analytics (plots/reports)"]
+  end
 
-  CLI -->|"start run / status"| D
-  D -->|"start run (local process)"| A
-  A -->|"HTTP load"| GW["Gateway (HTTP)"]
-  GW -->|"gRPC fan-out"| MS["Microservices (internal gRPC)"]
-  A -->|"samples + summary"| FS
-  D -->|"metadata + logs"| FS
-  PY -->|"read artifacts"| FS
-  CLI -->|"generate report"| PY
+  H -->|"start run"| O
+  O -->|"choose script"| A
+  A -->|"HTTP load"| GW["Gateway (HTTP)"]
+  GW -->|"gRPC fan-out"| MS["Microservices (internal gRPC)"]
+  A -->|"samples + summary"| FS
+  O -->|"metadata + logs"| FS
+  PY -->|"read artifacts"| FS
+  H -->|"generate report"| PY
 ```
 
 ---
@@ -34,25 +34,25 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-  autonumber
-  participant C as userfluxctl
-  participant D as userfluxd
-  participant A as userflux-agent
-  participant G as Gateway (HTTP)
-  participant F as Local FS (runs/run_id)
-  participant P as Python analytics
+  autonumber
+  participant H as userflux
+  participant O as userfluxo
+  participant A as userflux-agent
+  participant GW as Gateway (HTTP)
+  participant FS as Local FS (runs/run_id)
+  participant PY as Python analytics
 
-  C->>D: StartRun(config)
-  D->>F: create dir + write config/status=running
-  D->>A: launch agent(run_id, config)
-  loop while run active
-    A->>G: HTTP requests (vUsers concurrency)
-    A->>F: write samples (opt) + update aggregates
-  end
-  A->>F: write summary + status=finished/failed
-  D->>F: write orchestrator logs + final status
-  C->>P: GenerateReport(run_id)
-  P->>F: read summary/samples and write report
+  H->>O: StartRun(config)
+  O->>FS: Status running...
+  O->>A: launch agent(run_id, config)
+  loop while run active
+    A->>GW: HTTP requests (vUsers concurrency)
+    A->>FS: write samples (opt) + update aggregates
+  end
+  A->>FS: write summary + status=finished/failed
+  O->>FS: write orchestrator logs + final status
+  H->>PY: GenerateReport(run_id)
+  PY->>FS: read summary/samples and write report
 ```
 
 ---
