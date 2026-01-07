@@ -15,12 +15,14 @@ func Writer(ctx context.Context, ad *AgentData) {
 		case res := <-ad.ch:
 			err := en.Encode(res)
 			if err != nil {
-				panic("Writer is unavailable")
+				fmt.Fprintln(os.Stderr, "writer encode error:", err)
+				return
 			}
 		case <-ctx.Done():
 			err := en.Encode("Agent is done")
 			if err != nil {
-				panic("Writer is unavailable")
+				fmt.Fprintln(os.Stderr, "writer encode error on shutdown:", err)
+				os.Exit(1)
 			}
 			os.Exit(0)
 		default:
