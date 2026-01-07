@@ -56,24 +56,24 @@ func (l *Logger) Close() error {
 
 // Info logs an informational message
 func (l *Logger) Info(v ...interface{}) {
-	l.Logger.SetPrefix("INFO: ")
-	l.Logger.Output(2, fmt.Sprint(v...))
+	msg := fmt.Sprint(v...)
+	l.Logger.Output(2, "INFO: "+msg)
 }
 
 // Infof logs a formatted informational message
 func (l *Logger) Infof(format string, v ...interface{}) {
-	l.Logger.SetPrefix("INFO: ")
-	l.Logger.Output(2, fmt.Sprintf(format, v...))
+	msg := fmt.Sprintf(format, v...)
+	l.Logger.Output(2, "INFO: "+msg)
 }
 
 // Error logs an error message
 func (l *Logger) Error(v ...interface{}) {
-	l.Logger.SetPrefix("ERROR: ")
-	l.Logger.Output(2, fmt.Sprint(v...))
+	msg := fmt.Sprint(v...)
+	l.Logger.Output(2, "ERROR: "+msg)
 }
 
 // Errorf logs a formatted error message
 func (l *Logger) Errorf(format string, v ...interface{}) {
-	l.Logger.SetPrefix("ERROR: ")
-	l.Logger.Output(2, fmt.Sprintf(format, v...))
+	msg := fmt.Sprintf(format, v...)
+	l.Logger.Output(2, "ERROR: "+msg)
 }
