@@ -1,0 +1,14 @@
+config:
+  users: 1
+  time: "30s"
+
+script:
+  name: "test"
+  flow:
+    - name: "health"
+      url: "http://localhost:8080"
+      request:
+        method: "GET"
+        path: "/health"
+        headers:
+          accept: "application/json"
