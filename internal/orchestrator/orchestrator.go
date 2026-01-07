@@ -12,6 +12,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func baseDir() string {
+	wd, err := os.Getwd()
+	if err == nil {
+		return wd
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		return "."
+	}
+	return filepath.Dir(exe)
+}
+
 // Orchester:
 // - reads YAML script file
 // - decodes it
@@ -21,12 +34,8 @@ func Orchestrator(scriptName string) error {
 	s := session.NewSessionStruct()
 
 	// 1) Read + decode YAML script
-	exe, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	dir := filepath.Dir(exe)
-	p := filepath.Join(dir, "..", "scripts", scriptName)
+	dir := baseDir()
+	p := filepath.Join(dir, "scripts", scriptName)
 	p = filepath.Clean(p)
 	raw, err := os.ReadFile(p)
 	if err != nil {
@@ -70,7 +79,7 @@ func Orchestrator(scriptName string) error {
 	}
 	_ = enc.Close()
 
-	agent.RunAgent(s)
+	go agent.RunAgent(s)
 
 	return nil
 }
@@ -78,13 +87,15 @@ func Orchestrator(scriptName string) error {
 // Returns: descriptor on new session file, session number, error
 func createNewSessionFile() (*os.File, string, error) {
 	cnt := 0
-	exe, err := os.Executable()
-	if err != nil {
+	dir := baseDir()
+
+	p := filepath.Join(dir, "sessions")
+	p = filepath.Clean(p)
+
+	if err := os.MkdirAll(p, 0755); err != nil {
 		return nil, "", err
 	}
-	dir := filepath.Dir(exe)
-	p := filepath.Join(dir, "..", "sessions")
-	p = filepath.Clean(p)
+
 	_ = filepath.Walk(p, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -94,7 +105,7 @@ func createNewSessionFile() (*os.File, string, error) {
 	})
 
 	number := strconv.Itoa(cnt)
-	p = filepath.Join(p, "session_" + number)
+	p = filepath.Join(p, "session_"+number)
 	p = filepath.Clean(p)
 	file, err := os.Create(p)
 	if err != nil {
@@ -105,12 +116,16 @@ func createNewSessionFile() (*os.File, string, error) {
 }
 
 func createNewResult(n string) (*os.File, error) {
-	exe, err := os.Executable()
-	if err != nil {
+	dir := baseDir()
+
+	p := filepath.Join(dir, "results")
+	p = filepath.Clean(p)
+
+	if err := os.MkdirAll(p, 0755); err != nil {
 		return nil, err
 	}
-	dir := filepath.Dir(exe)
-	p := filepath.Join(dir, "..", "results", "result_" + n)
+
+	p = filepath.Join(p, "result_"+n)
 	p = filepath.Clean(p)
 	f, err := os.Create(p)
 	if err != nil {
