@@ -36,7 +36,7 @@ func RunAgent(s *orchestrator.Session) {
 
 	for i := 0; i < s.Users; i++ {
 		ad.wg.Add(1)
-		ctx := context.WithValue(context.Background(), "user_id", i)
+		ctx := context.WithValue(ctx, "user_id", i)
 		go runScript(ctx, ad)
 	}
 	ad.wg.Wait()
