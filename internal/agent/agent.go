@@ -84,10 +84,10 @@ func runScript(ctx context.Context, ad *AgentData) {
 			ad.ch <- res
 			return
 		}
+		defer resp.Body.Close()
 		cancel()
 		
 		dec := json.NewDecoder(resp.Body)
-		resp.Body.Close()
 		m := make(map[string]any) // result
 		err = dec.Decode(&m)
 		if err != nil {
@@ -96,6 +96,7 @@ func runScript(ctx context.Context, ad *AgentData) {
 			ad.ch <- res
 			return
 		}
+		resp.Body.Close()
 		res["result"] = m
 		ad.ch <- res
 	}

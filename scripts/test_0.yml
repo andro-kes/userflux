@@ -1,5 +1,5 @@
 config:
-  users: 1
+  users: 2
   time: "30s"
 
 script:

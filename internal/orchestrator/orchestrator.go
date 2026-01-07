@@ -36,12 +36,8 @@ func Orchestrator(scriptName string, logger session.Logger) error {
 	s.Logger = logger
 
 	// 1) Read + decode YAML script
-	exe, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	dir := filepath.Dir(exe)
-	p := filepath.Join(dir, "..", "scripts", scriptName)
+	root := baseDir()
+	p := filepath.Join(root, "scripts", scriptName)
 	p = filepath.Clean(p)
 	raw, err := os.ReadFile(p)
 	if err != nil {
@@ -133,15 +129,20 @@ func createNewSessionFile(logger session.Logger) (*os.File, string, error) {
 	return file, number, nil
 }
 
-func createNewResult(n string) (*os.File, error) {
-	exe, err := os.Executable()
-	if err != nil {
+func createNewResult(n string, logger session.Logger) (*os.File, error) {
+	dir := baseDir()
+
+	p := filepath.Join(dir, "results")
+	p = filepath.Clean(p)
+
+	if err := os.MkdirAll(p, 0755); err != nil {
 		return nil, err
 	}
 
 	p = filepath.Join(p, "result_"+n)
 	p = filepath.Clean(p)
 	logger.Infof("Creating result file: %s", p)
+
 	f, err := os.Create(p)
 	if err != nil {
 		return nil, err
