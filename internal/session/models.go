@@ -5,11 +5,20 @@ import (
 	"time"
 )
 
+// Logger interface to avoid import cycles
+type Logger interface {
+	Info(v ...interface{})
+	Infof(format string, v ...interface{})
+	Error(v ...interface{})
+	Errorf(format string, v ...interface{})
+}
+
 type Session struct {
 	ResultFile *os.File
 	Users      int
 	Time       time.Duration // время работы агента
 	Data       ScriptYAML
+	Logger     Logger
 }
 
 type ScriptYAML struct {

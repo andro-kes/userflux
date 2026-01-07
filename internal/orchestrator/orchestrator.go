@@ -17,12 +17,16 @@ import (
 // - decodes it
 // - fills Session fields
 // - creates session/result files
-func Orchestrator(scriptName string) error {
+func Orchestrator(scriptName string, logger session.Logger) error {
+	logger.Info("Orchestrator starting")
 	s := session.NewSessionStruct()
+	s.Logger = logger
 
 	// 1) Read + decode YAML script
+	logger.Infof("Reading script file: %s", scriptName)
 	exe, err := os.Executable()
 	if err != nil {
+		logger.Errorf("Failed to get executable path: %v", err)
 		return err
 	}
 	dir := filepath.Dir(exe)
@@ -30,11 +34,14 @@ func Orchestrator(scriptName string) error {
 	p = filepath.Clean(p)
 	raw, err := os.ReadFile(p)
 	if err != nil {
+		logger.Errorf("Failed to read script file: %v", err)
 		return err
 	}
 
+	logger.Info("Parsing YAML script")
 	var sc session.ScriptYAML
 	if err := yaml.Unmarshal(raw, &sc); err != nil {
+		logger.Errorf("Failed to parse YAML: %v", err)
 		return err
 	}
 
@@ -44,39 +51,49 @@ func Orchestrator(scriptName string) error {
 
 	dur, err := time.ParseDuration(sc.Config.Time)
 	if err != nil {
+		logger.Errorf("Failed to parse duration: %v", err)
 		return err
 	}
 	s.Time = dur
+	logger.Infof("Configured for %d users, duration: %s", s.Users, s.Time)
 
 	// 3) Create session + result files
-	fS, n, err := createNewSessionFile()
+	logger.Info("Creating session file")
+	fS, n, err := createNewSessionFile(logger)
 	if err != nil {
+		logger.Errorf("Failed to create session file: %v", err)
 		return err
 	}
 	defer fS.Close()
 
-	fR, err := createNewResult(n)
+	logger.Infof("Creating result file for session %s", n)
+	fR, err := createNewResult(n, logger)
 	if err != nil {
+		logger.Errorf("Failed to create result file: %v", err)
 		return err
 	}
 	s.ResultFile = fR
 	// No defer
 
 	// 4) save the script into the session file (encoded YAML)
+	logger.Info("Encoding script to session file")
 	enc := yaml.NewEncoder(fS)
 	enc.SetIndent(2)
 	if err := enc.Encode(sc); err != nil {
+		logger.Errorf("Failed to encode script: %v", err)
 		return err
 	}
 	_ = enc.Close()
 
+	logger.Info("Starting agent")
 	agent.RunAgent(s)
+	logger.Info("Agent completed")
 
 	return nil
 }
 
 // Returns: descriptor on new session file, session number, error
-func createNewSessionFile() (*os.File, string, error) {
+func createNewSessionFile(logger session.Logger) (*os.File, string, error) {
 	cnt := 0
 	exe, err := os.Executable()
 	if err != nil {
@@ -96,6 +113,7 @@ func createNewSessionFile() (*os.File, string, error) {
 	number := strconv.Itoa(cnt)
 	p = filepath.Join(p, "session_" + number)
 	p = filepath.Clean(p)
+	logger.Infof("Creating session file: %s", p)
 	file, err := os.Create(p)
 	if err != nil {
 		return nil, "", err
@@ -104,7 +122,7 @@ func createNewSessionFile() (*os.File, string, error) {
 	return file, number, nil
 }
 
-func createNewResult(n string) (*os.File, error) {
+func createNewResult(n string, logger session.Logger) (*os.File, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, err
@@ -112,6 +130,7 @@ func createNewResult(n string) (*os.File, error) {
 	dir := filepath.Dir(exe)
 	p := filepath.Join(dir, "..", "results", "result_" + n)
 	p = filepath.Clean(p)
+	logger.Infof("Creating result file: %s", p)
 	f, err := os.Create(p)
 	if err != nil {
 		return nil, err
