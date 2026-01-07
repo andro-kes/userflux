@@ -27,7 +27,7 @@ func RunAgent(s *orchestrator.Session) {
 
 	ad := &AgentData{
 		s,
-		make(chan map[string]any, 100),
+		make(chan map[string]any, s.Users*len(s.Data.Script.Flow)),
 		&sync.WaitGroup{},
 		&client,
 	}
