@@ -24,7 +24,7 @@ func Writer(ctx context.Context, ad *AgentData) {
 			}
 			os.Exit(0)
 		default:
-			fmt.Println("Queue is full")
+			fmt.Println("No messages in queue")
 		}
 	}
 }
