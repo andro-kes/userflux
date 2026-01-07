@@ -7,17 +7,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/andro-kes/userflux/internal/orchestrator"
+	"github.com/andro-kes/userflux/internal/session"
 )
 
 type AgentData struct {
-	*orchestrator.Session
+	*session.Session
 	ch     chan map[string]any
 	wg     *sync.WaitGroup
 	client *http.Client
 }
 
-func RunAgent(s *orchestrator.Session) {
+func RunAgent(s *session.Session) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.Time)
 	defer cancel()
 

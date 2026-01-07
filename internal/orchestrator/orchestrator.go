@@ -7,44 +7,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/andro-kes/userflux/internal/agent"
+	"github.com/andro-kes/userflux/internal/session"
 	"gopkg.in/yaml.v3"
 )
-
-type Session struct {
-	ResultFile *os.File
-	Users      int
-	Time       time.Duration // время работы агента
-	Data       ScriptYAML
-}
-
-// This matches script
-type ScriptYAML struct {
-	Config struct {
-		Users int    `yaml:"users"`
-		Time  string `yaml:"time"`
-	} `yaml:"config"`
-
-	Script struct {
-		Name string     `yaml:"name"`
-		Flow []FlowStep `yaml:"flow"`
-	} `yaml:"script"`
-}
-
-type FlowStep struct {
-	Name    string  `yaml:"name"`
-	URL     string  `yaml:"url"`
-	Request Request `yaml:"request"`
-}
-
-type Request struct {
-	Method  string            `yaml:"method"`
-	Path    string            `yaml:"path"`
-	Headers map[string]string `yaml:"headers"`
-}
-
-func newSessionStruct() *Session {
-	return &Session{}
-}
 
 // Orchester:
 // - reads YAML script file
@@ -52,7 +18,7 @@ func newSessionStruct() *Session {
 // - fills Session fields
 // - creates session/result files
 func Orchestrator(scriptName string) error {
-	s := newSessionStruct()
+	s := session.NewSessionStruct()
 
 	// 1) Read + decode YAML script
 	exe, err := os.Executable()
@@ -67,7 +33,7 @@ func Orchestrator(scriptName string) error {
 		return err
 	}
 
-	var sc ScriptYAML
+	var sc session.ScriptYAML
 	if err := yaml.Unmarshal(raw, &sc); err != nil {
 		return err
 	}
@@ -104,7 +70,7 @@ func Orchestrator(scriptName string) error {
 	}
 	_ = enc.Close()
 
-	// runAgent
+	agent.RunAgent(s)
 
 	return nil
 }
