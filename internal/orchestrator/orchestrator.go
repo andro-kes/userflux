@@ -51,11 +51,18 @@ func newSessionStruct() *Session {
 // - decodes it
 // - fills Session fields
 // - creates session/result files
-func Orchester(scriptName string) error {
+func Orchestrator(scriptName string) error {
 	s := newSessionStruct()
 
 	// 1) Read + decode YAML script
-	raw, err := os.ReadFile("../scripts/" + scriptName)
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Dir(exe)
+	p := filepath.Join(dir, "..", "scripts", scriptName)
+	p = filepath.Clean(p)
+	raw, err := os.ReadFile(p)
 	if err != nil {
 		return err
 	}
@@ -105,7 +112,14 @@ func Orchester(scriptName string) error {
 // Returns: descriptor on new session file, session number, error
 func createNewSessionFile() (*os.File, string, error) {
 	cnt := 0
-	_ = filepath.Walk("../sessions", func(path string, info fs.FileInfo, err error) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, "", err
+	}
+	dir := filepath.Dir(exe)
+	p := filepath.Join(dir, "..", "sessions")
+	p = filepath.Clean(p)
+	_ = filepath.Walk(p, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -114,7 +128,9 @@ func createNewSessionFile() (*os.File, string, error) {
 	})
 
 	number := strconv.Itoa(cnt)
-	file, err := os.Create("../sessions/session_" + number)
+	p = filepath.Join(p, "session_" + number)
+	p = filepath.Clean(p)
+	file, err := os.Create(p)
 	if err != nil {
 		return nil, "", err
 	}
@@ -123,7 +139,14 @@ func createNewSessionFile() (*os.File, string, error) {
 }
 
 func createNewResult(n string) (*os.File, error) {
-	f, err := os.Create("../results/result_" + n)
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	dir := filepath.Dir(exe)
+	p := filepath.Join(dir, "..", "results", "result_" + n)
+	p = filepath.Clean(p)
+	f, err := os.Create(p)
 	if err != nil {
 		return nil, err
 	}

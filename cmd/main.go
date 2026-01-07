@@ -3,7 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
+
+	"github.com/andro-kes/userflux/internal/orchestrator"
 )
 
 func main() {
@@ -13,15 +14,9 @@ func main() {
 	}
 
 	script := os.Args[1]
-	args := os.Args[2:]
 
-	cmd := exec.Command(script, args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "load test failed:", err)
+	if err := orchestrator.Orchestrator(script); err != nil {
+		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }

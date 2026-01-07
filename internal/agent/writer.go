@@ -8,6 +8,7 @@ import (
 )
 
 func Writer(ctx context.Context, ad *AgentData) {
+	defer ad.ResultFile.Close()
 	en := json.NewEncoder(ad.ResultFile)
 	en.SetIndent("", "	")
 	for {
@@ -16,7 +17,6 @@ func Writer(ctx context.Context, ad *AgentData) {
 			err := en.Encode(res)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "writer encode error:", err)
-				return
 			}
 		case <-ctx.Done():
 			err := en.Encode("Agent is done")
@@ -25,8 +25,6 @@ func Writer(ctx context.Context, ad *AgentData) {
 				os.Exit(1)
 			}
 			os.Exit(0)
-		default:
-			fmt.Println("No messages in queue")
 		}
 	}
 }

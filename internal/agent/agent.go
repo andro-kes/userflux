@@ -21,9 +21,7 @@ func RunAgent(s *orchestrator.Session) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.Time)
 	defer cancel()
 
-	client := http.Client{
-		Timeout: 10 * time.Second, // Общий дедлайн на весь запрос
-	}
+	client := http.Client{}
 
 	ad := &AgentData{
 		s,
@@ -79,9 +77,10 @@ func runScript(ctx context.Context, ad *AgentData) {
 			ad.ch <- res
 			return
 		}
-		resp.Body.Close()
-
+		cancel()
+		
 		dec := json.NewDecoder(resp.Body)
+		resp.Body.Close()
 		m := make(map[string]any) // result
 		err = dec.Decode(&m)
 		if err != nil {
