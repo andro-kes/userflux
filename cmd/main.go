@@ -9,7 +9,6 @@ import (
 )
 
 func main() {
-	// Initialize logger
 	logger, err := logging.NewLogger()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
@@ -17,7 +16,7 @@ func main() {
 	}
 	defer logger.Close()
 
-	logger.Info("userflux CLI starting")
+	logger.Info("userflux starting")
 
 	if len(os.Args) < 2 {
 		logger.Error("No script provided")
@@ -34,5 +33,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info("userflux CLI completed successfully")
+	logger.Info("userflux completed successfully")
 }
