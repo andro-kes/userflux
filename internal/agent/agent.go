@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"sync"
@@ -63,8 +65,27 @@ func runScript(ctx context.Context, ad *AgentData) {
 
 		method := flow.Request.Method
 		url := flow.URL + flow.Request.Path
+
+		var jsonBody []byte
+		if len(flow.Body) != 0 {
+			body, err := generateBody(flow.Body)
+			if err != nil {
+				ad.Logger.Errorf("User %v request execution error: %v", userId, err)
+				res["error"] = err
+				ad.ch <- res
+				return
+			}
+			jsonBody, err = json.Marshal(body)
+			if err != nil {
+				ad.Logger.Errorf("User %v request execution error: %v", userId, err)
+				res["error"] = err
+				ad.ch <- res
+				return
+			}
+		}
+		
 		ad.Logger.Infof("User %v executing request: %s %s", userId, method, url)
-		req, err := http.NewRequestWithContext(ctxFlow, method, url, nil)
+		req, err := http.NewRequestWithContext(ctxFlow, method, url, bytes.NewBuffer(jsonBody))
 		if err != nil {
 			ad.Logger.Errorf("User %v request creation error: %v", userId, err)
 			res["error"] = err
@@ -101,4 +122,29 @@ func runScript(ctx context.Context, ad *AgentData) {
 		ad.ch <- res
 	}
 	ad.Logger.Infof("User %v goroutine completed", userId)
+}
+
+const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+func generateBody(fields []string) (map[string]string, error) {
+	m := make(map[string]string)
+	for i := 0; i < len(fields); i++ {
+		s, err := generateRandString()
+		if err != nil {
+			return nil, err
+		}
+		m[fields[i]] = s
+	}
+
+	return m, nil
+}
+
+func generateRandString() (string, error) {
+	b := make([]byte, 10)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	for i := range b {
+		b[i] = letters[int(b[i])%len(letters)]
+	}
+	return string(b), nil
 }

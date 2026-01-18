@@ -1,0 +1,22 @@
+config:
+  users: 1
+  time: "30s"
+
+script:
+  name: "register"
+  flow:
+    - name: "health"
+      url: "http://localhost:8081"
+      request:
+        method: "GET"
+        path: "/health"
+        headers:
+          accept: "application/json"
+    - name: "register"
+      url: "http://localhost:8081"
+      body: [username, password]
+      request:
+        method: "POST"
+        path: "/auth/register"
+        headers:
+          accept: "application/json"
