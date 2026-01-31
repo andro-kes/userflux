@@ -29,7 +29,7 @@ func NewLogger() (*Logger, error) {
 	}
 
 	// Open log file in append mode, create if it doesn't exist
-	logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, logFilePerm)
+	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, logFilePerm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}

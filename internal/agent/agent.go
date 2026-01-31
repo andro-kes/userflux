@@ -3,24 +3,29 @@ package agent
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/andro-kes/userflux/internal/session"
+	"github.com/google/uuid"
 )
 
+// Структура для асинхронной работы агента
 type AgentData struct {
 	*session.Session
+	start time.Time
 	ch     chan map[string]any
 	wg     *sync.WaitGroup
 	client *http.Client
 }
 
 func RunAgent(s *session.Session) {
-	s.Logger.Infof("Agent starting with %d users for %s", s.Users, s.Time)
+	s.Logger.Infof("Agent starting... Time: %s", s.Time)
 	ctx, cancel := context.WithTimeout(context.Background(), s.Time)
 	defer cancel()
 
@@ -28,6 +33,7 @@ func RunAgent(s *session.Session) {
 
 	ad := &AgentData{
 		s,
+		time.Now(),
 		make(chan map[string]any, s.Users*len(s.Data.Script.Flow)),
 		&sync.WaitGroup{},
 		&client,
@@ -35,10 +41,16 @@ func RunAgent(s *session.Session) {
 
 	go Writer(ctx, ad)
 
-	for i := 0; i < s.Users; i++ {
-		ad.wg.Add(1)
-		ctx := context.WithValue(ctx, "user_id", i)
-		go runScript(ctx, ad)
+	ticker := time.NewTicker(time.Second)
+	for time.Since(ad.start) < s.Time {
+		select {
+		case <-ticker.C:
+			ad.wg.Add(1)
+			c := context.WithValue(ctx, "user_id", uuid.New().String())
+			go runScript(c, ad)
+		case <-ctx.Done():
+			ad.Logger.Info("Agent was expired")
+		}
 	}
 	s.Logger.Info("Waiting for all user goroutines to complete")
 	ad.wg.Wait()
@@ -60,7 +72,7 @@ func runScript(ctx context.Context, ad *AgentData) {
 			"result":      nil,
 			"error":       nil,
 		}
-		ctxFlow, cancel := context.WithTimeout(ctx, 1*time.Second)
+		ctxFlow, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
 		method := flow.Request.Method
@@ -82,6 +94,7 @@ func runScript(ctx context.Context, ad *AgentData) {
 				ad.ch <- res
 				return
 			}
+			ad.Logger.Infof("ID: %s, Username: %s, Password: %s", userId, body["username"], body["password"])
 		}
 		
 		ad.Logger.Infof("User %v executing request: %s %s", userId, method, url)
@@ -117,34 +130,16 @@ func runScript(ctx context.Context, ad *AgentData) {
 			ad.ch <- res
 			return
 		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			ad.Logger.Errorf("User response status code error: %d", resp.StatusCode)
+			body, _ := io.ReadAll(resp.Body)
+			res["error"] = fmt.Sprintf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+			ad.ch <- res
+			return
+		}
 		resp.Body.Close()
 		res["result"] = m
 		ad.ch <- res
 	}
 	ad.Logger.Infof("User %v goroutine completed", userId)
-}
-
-const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-func generateBody(fields []string) (map[string]string, error) {
-	m := make(map[string]string)
-	for i := 0; i < len(fields); i++ {
-		s, err := generateRandString()
-		if err != nil {
-			return nil, err
-		}
-		m[fields[i]] = s
-	}
-
-	return m, nil
-}
-
-func generateRandString() (string, error) {
-	b := make([]byte, 10)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	for i := range b {
-		b[i] = letters[int(b[i])%len(letters)]
-	}
-	return string(b), nil
 }
