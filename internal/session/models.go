@@ -15,7 +15,6 @@ type Logger interface {
 
 type Session struct {
 	ResultFile *os.File
-	Users      int
 	Time       time.Duration // время работы агента
 	Data       ScriptYAML
 	Logger     Logger

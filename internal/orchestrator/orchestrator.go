@@ -61,7 +61,7 @@ func Orchestrator(scriptName string, logger session.Logger) error {
 		return err
 	}
 	s.Time = dur
-	logger.Infof("Configured for %d users, duration: %s", s.Users, s.Time)
+	logger.Infof("Configured for duration: %s", s.Time)
 
 	// 3) Create session + result files
 	logger.Info("Creating session file")
