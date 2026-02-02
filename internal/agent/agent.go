@@ -62,7 +62,7 @@ func RunAgent(s *session.Session) {
 	s.Logger.Info("Waiting for all user goroutines to complete")
 	ad.wg.Wait()
 	s.Logger.Info("All user goroutines completed")
-	
+
 	close(ad.success)
 	close(ad.fail)
 }
@@ -75,9 +75,6 @@ func runScript(ctx context.Context, ad *AgentData) {
 	ad.Logger.Infof("User %v goroutine starting", userId)
 
 	for _, flow := range ad.Data.Script.Flow {
-		ctxFlow, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-
 		method := flow.Request.Method
 		url := flow.URL + flow.Request.Path
 
@@ -99,7 +96,7 @@ func runScript(ctx context.Context, ad *AgentData) {
 		}
 		
 		ad.Logger.Infof("User %v executing request: %s %s", userId, method, url)
-		req, err := http.NewRequestWithContext(ctxFlow, method, url, bytes.NewBuffer(jsonBody))
+		req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(jsonBody))
 		if err != nil {
 			ad.Logger.Errorf("User %v request creation error: %v", userId, err)
 			ad.fail <- struct{}{}
@@ -118,7 +115,6 @@ func runScript(ctx context.Context, ad *AgentData) {
 			return
 		}
 		defer resp.Body.Close()
-		cancel()
 		
 		dec := json.NewDecoder(resp.Body)
 		m := make(map[string]any) // result
