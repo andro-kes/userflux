@@ -18,11 +18,13 @@ import (
 // Структура для асинхронной работы агента
 type AgentData struct {
 	*session.Session
-	start time.Time
+	start  time.Time
 	ch     chan map[string]any
 	wg     *sync.WaitGroup
 	client *http.Client
 }
+
+type UserID string
 
 func RunAgent(s *session.Session) {
 	s.Logger.Infof("Agent starting... Time: %s", s.Time)
@@ -31,27 +33,33 @@ func RunAgent(s *session.Session) {
 
 	client := http.Client{}
 
+	size := int(s.Time.Seconds())
+
 	ad := &AgentData{
 		s,
 		time.Now(),
-		make(chan map[string]any, s.Users*len(s.Data.Script.Flow)),
+		make(chan map[string]any, size),
 		&sync.WaitGroup{},
 		&client,
 	}
+	defer close(ad.ch)
 
 	go Writer(ctx, ad)
 
 	ticker := time.NewTicker(time.Second)
-	for time.Since(ad.start) < s.Time {
-		select {
-		case <-ticker.C:
-			ad.wg.Add(1)
-			c := context.WithValue(ctx, "user_id", uuid.New().String())
-			go runScript(c, ad)
-		case <-ctx.Done():
-			ad.Logger.Info("Agent was expired")
+	defer ticker.Stop()
+	outer:
+		for time.Since(ad.start) < s.Time {
+			select {
+			case <-ticker.C:
+				ad.wg.Add(1)
+				c := context.WithValue(ctx, "user_id", UserID(uuid.New().String()))
+				go runScript(c, ad)
+			case <-ctx.Done():
+				ad.Logger.Info("Agent was expired")
+				break outer
+			}
 		}
-	}
 	s.Logger.Info("Waiting for all user goroutines to complete")
 	ad.wg.Wait()
 	s.Logger.Info("All user goroutines completed")
@@ -96,7 +104,7 @@ func runScript(ctx context.Context, ad *AgentData) {
 			}
 			ad.Logger.Infof("ID: %s, Username: %s, Password: %s", userId, body["username"], body["password"])
 		}
-		
+
 		ad.Logger.Infof("User %v executing request: %s %s", userId, method, url)
 		req, err := http.NewRequestWithContext(ctxFlow, method, url, bytes.NewBuffer(jsonBody))
 		if err != nil {
@@ -120,7 +128,7 @@ func runScript(ctx context.Context, ad *AgentData) {
 		}
 		defer resp.Body.Close()
 		cancel()
-		
+
 		dec := json.NewDecoder(resp.Body)
 		m := make(map[string]any) // result
 		err = dec.Decode(&m)

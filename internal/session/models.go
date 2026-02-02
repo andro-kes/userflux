@@ -23,9 +23,9 @@ type Session struct {
 
 type ScriptYAML struct {
 	Config struct {
-		Users int    `yaml:"users"`
-		Generated []Gen `yaml:"generated"` // request data
-		Time  string `yaml:"time"`
+		Users     int    `yaml:"users"`
+		Generated []Gen  `yaml:"generated"` // request data
+		Time      string `yaml:"time"`
 	} `yaml:"config"`
 
 	Script struct {
@@ -42,7 +42,7 @@ type FlowStep struct {
 }
 
 type Gen struct {
-	Model string
+	Model  string
 	Fields []string
 }
 
