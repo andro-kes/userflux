@@ -54,7 +54,6 @@ func Orchestrator(scriptName string, logger session.Logger) error {
 
 	// 2) Map script data into Session
 	s.Data = sc
-	s.Users = sc.Config.Users
 
 	dur, err := time.ParseDuration(sc.Config.Time)
 	if err != nil {
@@ -62,7 +61,7 @@ func Orchestrator(scriptName string, logger session.Logger) error {
 		return err
 	}
 	s.Time = dur
-	logger.Infof("Configured for %d users, duration: %s", s.Users, s.Time)
+	logger.Infof("Configured for duration: %s", s.Time)
 
 	// 3) Create session + result files
 	logger.Info("Creating session file")

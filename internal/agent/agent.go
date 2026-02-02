@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -19,7 +16,8 @@ import (
 type AgentData struct {
 	*session.Session
 	start time.Time
-	ch     chan map[string]any
+	success     chan struct{}
+	fail chan struct{}
 	wg     *sync.WaitGroup
 	client *http.Client
 }
@@ -31,27 +29,39 @@ func RunAgent(s *session.Session) {
 
 	client := http.Client{}
 
+	size := 100
+
 	ad := &AgentData{
 		s,
 		time.Now(),
-		make(chan map[string]any, s.Users*len(s.Data.Script.Flow)),
+		make(chan struct{}, size),
+		make(chan struct{}, size),
 		&sync.WaitGroup{},
 		&client,
 	}
 
-	go Writer(ctx, ad)
+	writer := NewWriter(s.Data.Script.Name)
+	go writer.Start(ctx, ad)
 
-	ticker := time.NewTicker(time.Second)
+	outer:
 	for time.Since(ad.start) < s.Time {
+		delay := RandomDelay(time.Second, "uniform", 0.3, 50*time.Millisecond, 10*time.Second)
+		timer := time.NewTimer(delay)
+
 		select {
-		case <-ticker.C:
+		case <-timer.C:
 			ad.wg.Add(1)
 			c := context.WithValue(ctx, "user_id", uuid.New().String())
 			go runScript(c, ad)
 		case <-ctx.Done():
 			ad.Logger.Info("Agent was expired")
+			timer.Stop()
+			break outer
 		}
+
+		timer.Stop()
 	}
+
 	s.Logger.Info("Waiting for all user goroutines to complete")
 	ad.wg.Wait()
 	s.Logger.Info("All user goroutines completed")
@@ -65,16 +75,6 @@ func runScript(ctx context.Context, ad *AgentData) {
 	ad.Logger.Infof("User %v goroutine starting", userId)
 
 	for _, flow := range ad.Data.Script.Flow {
-		res := map[string]any{
-			"user_id":     userId,
-			"script_name": ad.Data.Script.Name,
-			"flow_name":   flow.Name,
-			"result":      nil,
-			"error":       nil,
-		}
-		ctxFlow, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-
 		method := flow.Request.Method
 		url := flow.URL + flow.Request.Path
 
@@ -83,26 +83,23 @@ func runScript(ctx context.Context, ad *AgentData) {
 			body, err := generateBody(flow.Body)
 			if err != nil {
 				ad.Logger.Errorf("User %v request execution error: %v", userId, err)
-				res["error"] = err
-				ad.ch <- res
+				ad.fail <- struct{}{}
 				return
 			}
 			jsonBody, err = json.Marshal(body)
 			if err != nil {
 				ad.Logger.Errorf("User %v request execution error: %v", userId, err)
-				res["error"] = err
-				ad.ch <- res
+				ad.fail <- struct{}{}
 				return
 			}
 			ad.Logger.Infof("ID: %s, Username: %s, Password: %s", userId, body["username"], body["password"])
 		}
 		
 		ad.Logger.Infof("User %v executing request: %s %s", userId, method, url)
-		req, err := http.NewRequestWithContext(ctxFlow, method, url, bytes.NewBuffer(jsonBody))
+		req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(jsonBody))
 		if err != nil {
 			ad.Logger.Errorf("User %v request creation error: %v", userId, err)
-			res["error"] = err
-			ad.ch <- res
+			ad.fail <- struct{}{}
 			return
 		}
 
@@ -114,32 +111,26 @@ func runScript(ctx context.Context, ad *AgentData) {
 		resp, err := ad.client.Do(req)
 		if err != nil {
 			ad.Logger.Errorf("User %v request execution error: %v", userId, err)
-			res["error"] = err
-			ad.ch <- res
+			ad.fail <- struct{}{}
 			return
 		}
 		defer resp.Body.Close()
-		cancel()
 		
 		dec := json.NewDecoder(resp.Body)
 		m := make(map[string]any) // result
 		err = dec.Decode(&m)
 		if err != nil {
 			ad.Logger.Errorf("User %v response decode error: %v", userId, err)
-			res["error"] = err
-			ad.ch <- res
+			ad.fail <- struct{}{}
 			return
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			ad.Logger.Errorf("User response status code error: %d", resp.StatusCode)
-			body, _ := io.ReadAll(resp.Body)
-			res["error"] = fmt.Sprintf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-			ad.ch <- res
+			ad.fail <- struct{}{}
 			return
 		}
 		resp.Body.Close()
-		res["result"] = m
-		ad.ch <- res
+		ad.success <- struct{}{}
 	}
 	ad.Logger.Infof("User %v goroutine completed", userId)
 }
