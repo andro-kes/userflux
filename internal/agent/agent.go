@@ -22,6 +22,8 @@ type AgentData struct {
 	client *http.Client
 }
 
+type UserID string
+
 func RunAgent(s *session.Session) {
 	s.Logger.Infof("Agent starting... Time: %s", s.Time)
 	ctx, cancel := context.WithTimeout(context.Background(), s.Time)
@@ -94,7 +96,7 @@ func runScript(ctx context.Context, ad *AgentData) {
 			}
 			ad.Logger.Infof("ID: %s, Username: %s, Password: %s", userId, body["username"], body["password"])
 		}
-		
+
 		ad.Logger.Infof("User %v executing request: %s %s", userId, method, url)
 		req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(jsonBody))
 		if err != nil {

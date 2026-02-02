@@ -8,6 +8,7 @@ import (
 )
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
 func generateBody(fields []string) (map[string]string, error) {
 	m := make(map[string]string)
 	for i := 0; i < len(fields); i++ {

@@ -40,7 +40,7 @@ type FlowStep struct {
 }
 
 type Gen struct {
-	Model string
+	Model  string
 	Fields []string
 }
 
