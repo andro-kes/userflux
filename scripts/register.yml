@@ -1,6 +1,6 @@
 config:
   users: 1
-  time: "10s"
+  time: "30s"
 
 script:
   name: "register"
