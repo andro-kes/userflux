@@ -27,7 +27,6 @@ type UserID string
 func RunAgent(s *session.Session) {
 	s.Logger.Infof("Agent starting... Time: %s", s.Time)
 	ctx, cancel := context.WithTimeout(context.Background(), s.Time)
-	defer cancel()
 
 	client := http.Client{}
 
@@ -47,7 +46,7 @@ func RunAgent(s *session.Session) {
 
 	outer:
 	for time.Since(ad.start) < s.Time {
-		delay := RandomDelay(time.Second, "uniform", 0.3, 50*time.Millisecond, 10*time.Second)
+		delay := RandomDelay(time.Second, "exp", 0.3, 50*time.Millisecond, 10*time.Second)
 		timer := time.NewTimer(delay)
 
 		select {
@@ -67,6 +66,8 @@ func RunAgent(s *session.Session) {
 	s.Logger.Info("Waiting for all user goroutines to complete")
 	ad.wg.Wait()
 	s.Logger.Info("All user goroutines completed")
+
+	cancel()
 }
 
 // Запуск сценария со всеми настройками

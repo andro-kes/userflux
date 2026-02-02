@@ -25,8 +25,17 @@ func (w *Writer) Start(ctx context.Context, ad *AgentData) {
 	en := json.NewEncoder(ad.ResultFile)
 	en.SetIndent("", "	")
 
-	outer:
 	for {
+		select {
+		case <-ctx.Done():
+			ad.Logger.Info("Writer shutting down on context done")
+			if err := en.Encode(w); err != nil {
+				ad.Logger.Errorf("Writer encode error on shutdown: %v", err)
+			}
+			return
+		default:
+		}
+		
 		select {
 		case <-ctx.Done():
 			ad.Logger.Info("Writer shutting down on context done")
@@ -34,7 +43,7 @@ func (w *Writer) Start(ctx context.Context, ad *AgentData) {
 			if err != nil {
 				ad.Logger.Errorf("Writer encode error on shutdown: %v", err)
 			}
-			break outer
+			return
 		case <-ad.success:
 			atomic.AddInt32(&w.Success, 1)
 			atomic.AddInt32(&w.Total, 1)
@@ -43,7 +52,4 @@ func (w *Writer) Start(ctx context.Context, ad *AgentData) {
 			atomic.AddInt32(&w.Total, 1)
 		}	
 	}
-
-	close(ad.success)
-	close(ad.fail)
 }
