@@ -55,8 +55,11 @@ func RunAgent(s *session.Session) {
 			go runScript(c, ad)
 		case <-ctx.Done():
 			ad.Logger.Info("Agent was expired")
+			timer.Stop()
 			break outer
 		}
+
+		timer.Stop()
 	}
 
 	s.Logger.Info("Waiting for all user goroutines to complete")
