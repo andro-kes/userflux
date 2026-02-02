@@ -23,7 +23,6 @@ type Session struct {
 
 type ScriptYAML struct {
 	Config struct {
-		Users int    `yaml:"users"`
 		Generated []Gen `yaml:"generated"` // request data
 		Time  string `yaml:"time"`
 	} `yaml:"config"`

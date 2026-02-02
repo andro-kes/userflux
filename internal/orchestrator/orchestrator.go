@@ -54,7 +54,6 @@ func Orchestrator(scriptName string, logger session.Logger) error {
 
 	// 2) Map script data into Session
 	s.Data = sc
-	s.Users = sc.Config.Users
 
 	dur, err := time.ParseDuration(sc.Config.Time)
 	if err != nil {
