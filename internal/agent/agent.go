@@ -62,9 +62,6 @@ func RunAgent(s *session.Session) {
 	s.Logger.Info("Waiting for all user goroutines to complete")
 	ad.wg.Wait()
 	s.Logger.Info("All user goroutines completed")
-
-	close(ad.success)
-	close(ad.fail)
 }
 
 // Запуск сценария со всеми настройками

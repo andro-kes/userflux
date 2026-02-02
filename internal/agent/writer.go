@@ -43,4 +43,7 @@ func (w *Writer) Start(ctx context.Context, ad *AgentData) {
 			atomic.AddInt32(&w.Total, 1)
 		}	
 	}
+
+	close(ad.success)
+	close(ad.fail)
 }
