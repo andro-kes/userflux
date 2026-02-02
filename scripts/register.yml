@@ -20,3 +20,4 @@ script:
         path: "/auth/register"
         headers:
           accept: "application/json"
+          content-type: "application/json"
