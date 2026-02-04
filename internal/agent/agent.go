@@ -15,11 +15,11 @@ import (
 // Структура для асинхронной работы агента
 type AgentData struct {
 	*session.Session
-	start time.Time
-	success     chan struct{}
-	fail chan struct{}
-	wg     *sync.WaitGroup
-	client *http.Client
+	start   time.Time
+	success chan struct{}
+	fail    chan struct{}
+	wg      *sync.WaitGroup
+	client  *http.Client
 }
 
 type UserID string
@@ -118,7 +118,7 @@ func runScript(ctx context.Context, ad *AgentData) {
 			return
 		}
 		defer resp.Body.Close()
-		
+
 		dec := json.NewDecoder(resp.Body)
 		m := make(map[string]any) // result
 		err = dec.Decode(&m)

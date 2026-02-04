@@ -7,10 +7,10 @@ import (
 )
 
 type Writer struct {
-	Script string `json:"Script"`
-	Total int32 `json:"Total"`
-	Success int32 `json:"Success"`
-	Failure int32 `json:"Failure"`
+	Script  string `json:"Script"`
+	Total   int32  `json:"Total"`
+	Success int32  `json:"Success"`
+	Failure int32  `json:"Failure"`
 }
 
 func NewWriter(script string) *Writer {
@@ -35,7 +35,7 @@ func (w *Writer) Start(ctx context.Context, ad *AgentData) {
 			return
 		default:
 		}
-		
+
 		select {
 		case <-ctx.Done():
 			ad.Logger.Info("Writer shutting down on context done")
@@ -50,6 +50,6 @@ func (w *Writer) Start(ctx context.Context, ad *AgentData) {
 		case <-ad.fail:
 			atomic.AddInt32(&w.Failure, 1)
 			atomic.AddInt32(&w.Total, 1)
-		}	
+		}
 	}
 }

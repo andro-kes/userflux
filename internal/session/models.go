@@ -22,8 +22,8 @@ type Session struct {
 
 type ScriptYAML struct {
 	Config struct {
-		Generated []Gen `yaml:"generated"` // request data
-		Time  string `yaml:"time"`
+		Generated []Gen  `yaml:"generated"` // request data
+		Time      string `yaml:"time"`
 	} `yaml:"config"`
 
 	Script struct {
