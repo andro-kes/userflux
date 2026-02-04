@@ -10,22 +10,28 @@ Userflux генерирует нагрузку **только через Gateway
 
 ```mermaid
 flowchart TB
-  subgraph DEV["Local machine"]
-    H["userflux"]
-    O["userfluxo (Orchestrator)"]
-    A["userflux-agent (Load generator)"]
-    FS[("CSV")]
-    PY["Python analytics (plots/reports)"]
-  end
+  subgraph DEV["Local machine"]
+    H["userflux (CLI)"]
+    O["Orchestrator"]
+    A["Agent (Load generator)"]
+    W["Writer (Results collector)"]
+    FS[("File System")]
+    subgraph ARTIFACTS["Artifacts"]
+      SESS["sessions/"]
+      RES["results/"]
+      LOGS["logs/"]
+    end
+  end
 
-  H -->|"start run"| O
-  O -->|"choose script"| A
-  A -->|"HTTP load"| GW["Gateway (HTTP)"]
-  GW -->|"gRPC fan-out"| MS["Microservices (internal gRPC)"]
-  A -->|"samples + summary"| FS
-  O -->|"metadata + logs"| FS
-  PY -->|"read artifacts"| FS
-  H -->|"generate report"| PY
+  H -->|"parse args"| O
+  O -->|"read script"| SCRIPTS["scripts/*.yml"]
+  O -->|"create session"| A
+  A -->|"spawn vUsers"| GW["Gateway (HTTP)"]
+  GW -->|"gRPC fan-out"| MS["Microservices"]
+  A -->|"success/fail signals"| W
+  W -->|"write JSON"| RES
+  O -->|"copy config"| SESS
+  H -->|"write logs"| LOGS
 ```
 
 ---
@@ -34,45 +40,120 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-  autonumber
-  participant H as userflux
-  participant O as userfluxo
-  participant A as userflux-agent
-  participant GW as Gateway (HTTP)
-  participant FS as Local FS (runs/run_id)
-  participant PY as Python analytics
+  autonumber
+  participant CLI as userflux (main)
+  participant O as Orchestrator
+  participant A as Agent
+  participant W as Writer
+  participant GW as Gateway (HTTP)
+  participant FS as File System
 
-  H->>O: StartRun(config)
-  O->>FS: Status running...
-  O->>A: launch agent(run_id, config)
-  loop while run active
-    A->>GW: HTTP requests (vUsers concurrency)
-    A->>FS: write samples (opt) + update aggregates
-  end
-  A->>FS: write summary + status=finished/failed
-  O->>FS: write orchestrator logs + final status
-  H->>PY: GenerateReport(run_id)
-  PY->>FS: read summary/samples and write report
+  CLI->>O: Orchestrator(script, logger)
+  O->>FS: Read scripts/<script>.yml
+  O->>FS: Create sessions/session_N
+  O->>FS: Create results/result_N
+  O->>A: RunAgent(session)
+  A->>W: Start writer goroutine
+  
+  loop while duration not exceeded
+    A->>A: RandomDelay (exp/uniform/normal)
+    A->>A: Spawn user goroutine
+    A->>GW: Execute HTTP flow
+    alt success
+      A->>W: success channel
+    else failure
+      A->>W: fail channel
+    end
+  end
+  
+  A->>A: Wait for all goroutines
+  A->>W: Context cancelled
+  W->>FS: Encode final JSON to result_N
+  CLI->>CLI: Exit
 ```
 
 ---
 
-## 3) Артефакты прогона (на диске)
+## 3) Структура проекта
+
+```
+userflux/
+├── cmd/
+│   └── main.go                 # CLI entry point
+├── internal/
+│   ├── agent/
+│   │   ├── agent.go            # Load generation logic
+│   │   ├── helpers.go          # Random delay, body generation
+│   │   └── writer.go           # Result aggregation
+│   ├── logging/
+│   │   └── logger.go           # Multi-writer logger (file + stderr)
+│   ├── orchestrator/
+│   │   └── orchestrator.go     # Script parsing, session management
+│   └── session/
+│       └── models.go           # Data structures
+├── scripts/                    # YAML test scenarios
+├── sessions/                   # Session configs (auto-created)
+├── results/                    # JSON results (auto-created)
+├── logs/                       # Log files (auto-created)
+└── docs/
+    └── architecture.md         # This file
+```
+
+---
+
+## 4) Артефакты прогона (на диске)
 
 ```mermaid
 flowchart LR
-  RID["run_id"] --> DIR["runs/<run_id>/"]
-  DIR --> CFG["config.json"]
-  DIR --> ST["status.json"]
-  DIR --> SUM["summary.json"]
-  DIR --> SAMP["samples.ndjson (optional)"]
-  DIR --> LOG["logs.txt (optional)"]
-  DIR --> REP["report.html and/or png (generated)"]
+  RUN["Run N"] --> SESS["sessions/session_N"]
+  RUN --> RES["results/result_N"]
+  RUN --> LOG["logs/userflux.log"]
+  
+  SESS --> |"contains"| YAML["Script YAML copy"]
+  RES --> |"contains"| JSON["Success/Failure counts"]
+  LOG --> |"contains"| LOGS["Timestamped execution logs"]
+```
+
+### Формат result_N:
+```json
+{
+  "Script": "register",
+  "Total": 150,
+  "Success": 148,
+  "Failure": 2
+}
 ```
 
 ---
 
-## 4) Ключевые принципы (для текущего этапа)
-- Профиль нагрузки: **concurrency (virtual users)** + стадии (ramp/hold).
-- Метрики на старте: **локальная агрегация** (latency p50/p95/p99, error rate, throughput).
-- `summary.json` — основной контракт результата для Python-аналитики.
+## 5) Стратегии задержки между запросами
+
+Agent поддерживает три режима генерации задержки (`RandomDelay`):
+
+| Режим | Описание | Параметры |
+|-------|----------|-----------|
+| `uniform` | Равномерное распределение ±X% от base | `jitterFraction` = доля (0.3 = ±30%) |
+| `exp` | Экспоненциальное распределение | `base` = среднее время |
+| `normal` | Нормальное распределение (Box-Muller) | `jitterFraction` = стандартное отклонение как доля от base |
+
+Все режимы поддерживают `min` и `max` для ограничения значений.
+
+---
+
+## 6) Ключевые принципы
+
+- **Профиль нагрузки**: concurrency через goroutines + рандомизированные интервалы
+- **Метрики**: локальная агрегация (Total, Success, Failure) через атомарные счётчики
+- **Каналы**: успех/неудача передаются через buffered channels в Writer
+- **Graceful shutdown**: контекст с таймаутом + ожидание всех goroutines через WaitGroup
+- **Логирование**: dual-output (файл + stderr) с timestamps и source location
+
+---
+
+## 7) Текущие ограничения
+
+- Нет поддержки ramp-up/ramp-down стадий
+- Параметр `users` в конфиге пока не используется (запланировано)
+- Нет расширенных метрик (latency p50/p95/p99, throughput)
+- Python-аналитика ещё не реализована
+- Результаты не включают временные метки отдельных запросов
